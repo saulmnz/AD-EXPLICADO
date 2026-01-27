@@ -1,4 +1,6 @@
 # AD 🥣
 
-![IMG](https://i.pinimg.com/originals/76/50/65/76506505d3a2d5d4258380fbd780f9ae.gif)
+![IMG](https://i.pinimg.com/originals/46/4f/d9/464fd9d9ba7c3450c9a8ae98f3e03362.gif)
+
+
 
