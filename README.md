@@ -199,7 +199,8 @@ public class Pelicula {
 
 ### REPOSITORY PeliculaRepository.java Y ActorRepository.java 🧁
 
-- **El repository actúa como mediador entre el código de java y la base de datos postgreSQL. La función que tiene es permitir hacer las funciones CRUD, sin tener que escribir líneas de código SQL. Ambos ficheros heredan JpaRepository.**
+>[!NOTE]
+> **El repository actúa como mediador entre el código de java y la base de datos postgreSQL. La función que tiene es permitir hacer las funciones CRUD, sin tener que escribir líneas de código SQL. Ambos ficheros heredan JpaRepository.**
 
 
 > [!CAUTION]
@@ -222,7 +223,7 @@ public interface PeliculaRepository extends JpaRepository<Pelicula, Integer> {
     // HEREDAR DE JPAREPOSITORY PROPORCIONA TODOS LOS MÉTODOS CRUD ESTÁNDAR (SAVE, FINDALL, DELETE) ESPECIFICANDO QUE TRABAJAMOS CON LA ENTIDAD PELICULA Y QUE SU CLAVE PRIMARIA ES DE TIPO INTEGER
 
     List<Pelicula> findByTitulo(String titulo); 
-    // DEFINE UNA CONSULTA DERIVADA QUE GENERA AUTOMÁTICAMENTE EL SQL "SELECT * FROM PELICULAS WHERE TITULO = ?" // ESTA FUNCIÓN ES VITAL PARA QUE EL MICROSERVICIO MONGOCHAMADOR PUEDA SOLICITAR PELÍCULAS ESPECÍFICAS POR SU NOMBRE Y LUEGO PROCESARLAS HACIA MONGODB
+    // DEFINE UNA CONSULTA DERIVADA QUE GENERA AUTOMÁTICAMENTE EL SQL "SELECT * FROM PELICULAS WHERE TITULO = ?" // ESTA FUNCIÓN ES ESENCIAL PARA QUE EL MICROSERVICIO MONGOCHAMADOR PUEDA SOLICITAR PELÍCULAS ESPECÍFICAS POR SU NOMBRE Y LUEGO PROCESARLAS HACIA MONGODB
 }
 
 ```
@@ -241,7 +242,7 @@ public interface ActorRepository extends JpaRepository<Actor, Integer> {
     // ESTABLECE LA CONEXIÓN CON LA TABLA ACTORES PERMITIENDO REALIZAR OPERACIONES SOBRE LA ENTIDAD ACTOR CUYO IDENTIFICADOR ES UN INTEGER
 
     List<Actor> findByPelicula_IdPelicula(Integer idPelicula); 
-    // ESTE MÉTODO UTILIZA LA CONVENCIÓN DE NOMBRES DE JPA PARA "NAVEGAR" POR LA RELACIÓN: BUSCA EN EL ATRIBUTO "PELICULA" (EL OBJETO RELACIONADO) Y FILTRA POR SU CAMPO "IDPELICULA" // ES ESENCIAL EN ESTA PRÁCTICA PARA RECUPERAR LOS 3 ACTORES DE CADA PELÍCULA QUE POSTERIORMENTE ENVIAREMOS AL MICROSERVICIO DE MONGO
+    // ESTE MÉTODO UTILIZA LA CONVENCIÓN DE NOMBRES DE JPA PARA "NAVEGAR" POR LA RELACIÓN: BUSCA EN EL ATRIBUTO "PELICULA" (EL OBJETO RELACIONADO) Y FILTRA POR SU CAMPO "IDPELICULA" // ES ESENCIAL PARA RECUPERAR LOS 3 ACTORES DE CADA PELÍCULA QUE POSTERIORMENTE ENVIAREMOS AL MICROSERVICIO DE MONGO
 }
 
 ```
@@ -249,6 +250,9 @@ public interface ActorRepository extends JpaRepository<Actor, Integer> {
 ---
 
 ### SERVICE PeliculaService.java Y ActorService.java 🦂
+
+>[!NOTE]
+>******
 
 ```java
 package org.example.service;
@@ -331,6 +335,17 @@ public class ActorService {
 ---
 
 ### CONTROLLER RestPeliculas.java Y RestActores.java🦠
+
+>[!NOTE]
+>***Esta capa se encarga de escuchar lo que llega por la red y decide qué hacer con esa información. En este caso, el controlador está en el puerto 8085 esperando a que el microservicio de mongo le envíe o pida datos***
+
+<br>
+
+***Las 3 funciones principales del controller son:***
+
+- **Mapeo de rutas ( ENDPOINTS ): **
+
+
 
 ```java
 package org.example.controller;
