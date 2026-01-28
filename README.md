@@ -22,7 +22,7 @@
 
 ### ESTRUCTURA DE ARCHIVOS
 
-![img](<img width="212" height="271" alt="image" src="https://github.com/user-attachments/assets/a878c27a-ef9d-49fd-868a-bb283baf68b5" />)
+![img](ESTRUCTURA/123.png)
 
 
 
