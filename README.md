@@ -13,10 +13,18 @@
 
 ---
 
-### CONFIGURACIÓN DE PELISPOSTGRES 🎨
+### CONFIGURACIÓN DE PELISPOSTGRES 🦦
 
 > [!NOTE]
 >  ***Empezamos primero a configurar PelisPostgres***
+
+---
+
+### ESTRUCTURA DE ARCHIVOS
+
+![img](<img width="212" height="271" alt="image" src="https://github.com/user-attachments/assets/a878c27a-ef9d-49fd-868a-bb283baf68b5" />)
+
+
 
 #### ESTRUCTURA SQL
 
@@ -74,7 +82,7 @@ server.port=8085
 ---
 
 
-#### ENTIDADES Pelicula.java y Actor.java
+#### MODEL/ENTIDADES Pelicula.java y Actor.java
 
 ```java
 package org.example.model;
