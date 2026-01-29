@@ -10,6 +10,8 @@
 > 1. ***Levantar la máquina virtual, asegurar la correcta conexión y accesibilidad con la VM, postgres y mongoDB***
 > 2. ***Lanzar el script de creación de tablas para postgreSQL***
 > 3. ***Configuración del application.properties***
+> 4. ***Una vez hecho lo anterior y configurado todos los archivos -> ejecutar PelisPostgres***
+> 5. ***Esperar 10 segundos y ejecutar MongoChamador***
 
 ---
 
@@ -64,134 +66,122 @@ server.port=8085
 ---
 
 
-### MODEL/ENTIDADES Pelicula.java Y Actor.java 🎨🎨
+### MODEL/ENTIDADES Peliculas.java Y Actores.java 🎨🎨
 
-- **Al definir una clase como @Entity, le decimos a Spring que cree una tabla basada en esa clase y, con @Tbale( name = "actores") aseguras que en postgres sea exactamente el nomnbre que indicamos. Hay que diferenciar una cosa, en Java, en este microservicio por ejemplo, Actor tiene un objeto de tipo Película dentro `private Pelicula pelicula;` , en SQL, Actor solo tiene el ID de la película en la columna correspodiente ( la columna de la clave foránea id_pelicula ).**
+- **Al definir una clase como @Entity, le decimos a Spring que cree una tabla basada en esa clase y, con @Table( name = "actores") aseguras que en postgres sea exactamente el nomnbre que indicamos. Hay que diferenciar una cosa, en Java, en este microservicio por ejemplo, Actor tiene un objeto de tipo Película dentro `private Peliculas pelicula;` , en SQL, Actor solo tiene el ID de la película en la columna correspodiente ( la columna de la clave foránea id_pelicula ).**
 
 > [!CAUTION]
 > ***En JPA ( API de Java ) estas clases representan las tablas de la bas de datos, los nombres de los campos deben coincidir con las columnas que definen el script SQL para que el mapeo ( la traducción de java a SQL ) sea automática. En este microservicio usamos JPA ( Jakarta Persistence API ). Su función se resume al mapeo relacional, le dice al programa que la clase actor es la tabla actores, además de definir la clave foránea de esa clase.***
 
 > [!NOTE]
-> ***La relación @ManyToOne en el archivo Actor.java de este microservicio define que muchos actores pertenecen a una pelicula. en el código se define como @ManyToOne(fetch = FetchType.EAGER), además, tendremos que indicarle la columna que será la clave foránea de la en la tabla, @JoinColumn(name = "id_pelicula").***
+> ***La relación @ManyToOne en el archivo Actor.java de este microservicio define que muchos actores pertenecen a una pelicula. en el código se define como @ManyToOne(fetch = FetchType.EAGER), además, tendremos que indicarle la columna que será la clave foránea de la en la tabla, @JoinColumn(name = "id_pelicula"). @JsonManagedReference (Padre) y @JsonBackReference (Hijo): CRÍTICO. Evitan que al convertir a JSON el programa entre en un bucle infinito (Película llama a Actor -> Actor llama a Película -> Película llama a Actor...).***
 
 
 ```java
 package org.example.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
+// CLASE ENTIDAD QUE MAPEA LA TABLA 'ACTORES' EN POSTGRES
 @Entity
 @Table(name = "actores")
-public class Actor {
+public class Actores {
 
-    @Id // ESTA ANOTACIÓN DEFINE EL ATRIBUTO COMO LA CLAVE PRIMARIA ÚNICA DE LA TABLA PARA QUE JPA PUEDA IDENTIFICAR CADA REGISTRO DE FORMA INDIVIDUAL
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // ESTABLECE QUE EL VALOR DEL IDENTIFICADOR ES AUTOINCREMENTAL Y QUE LA RESPONSABILIDAD DE GENERARLO RECAE EN EL TIPO "SERIAL" DE POSTGRESQL
-    @Column(name = "idActor") // ASOCIA EXPLÍCITAMENTE ESTE ATRIBUTO DE JAVA CON EL NOMBRE EXACTO DE LA COLUMNA DEFINIDA EN EL SCRIPT DE CREACIÓN DE LA BASE DE DATOS
-    private Integer idActor;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long idActor;
 
     private String nome;
     private String apelidos;
     private String nacionalidade;
 
-    @ManyToOne(fetch = FetchType.LAZY) // ESTABLECE UNA RELACIÓN DE "MUCHOS A UNO" INDICANDO QUE MÚLTIPLES ACTORES PUEDEN ESTAR VINCULADOS A UNA ÚNICA PELÍCULA, CARGANDO LOS DATOS SOLO CUANDO SEAN NECESARIOS PARA AHORRAR MEMORIA
-    @JoinColumn(name = "id_pelicula", referencedColumnName = "idPelicula") // DEFINE LA COLUMNA QUE ACTÚA COMO CLAVE FORÁNEA EN LA TABLA ACTORES Y ESPECIFICA QUE SE CONECTA CON LA COLUMNA IDPELICULA DE LA TABLA PELICULAS
-    @JsonIgnore // ESTA ANOTACIÓN ES CRUCIAL PARA EL MICROSERVICIO PORQUE EVITA LA RECURSIÓN INFINITA AL TRANSFORMAR EL OBJETO A JSON, IMPIDIENDO QUE EL ACTOR INTENTE SERIALIZAR SU PELÍCULA Y ESTA A SU VEZ A SUS ACTORES
-    private Pelicula pelicula; // ATRIBUTO QUE REPRESENTA EL OBJETO PADRE AL QUE PERTENECE ESTE REGISTRO, PERMITIENDO NAVEGAR HACIA LA INFORMACIÓN DE LA PELÍCULA DESDE EL ACTOR
+    // RELACION MUCHOS A UNO
+    // JSONBACKREFERENCE EVITA BUCLES INFINITOS AL SERIALIZAR JSON
+    @ManyToOne
+    @JoinColumn(name = "id_pelicula")
+    @JsonBackReference
+    private Peliculas pelicula;
 
-    public Actor() {
-        // CONSTRUCTOR VACÍO OBLIGATORIO POR LA ESPECIFICACIÓN DE JPA PARA PODER CREAR LAS INSTANCIAS DE LA CLASE DE FORMA DINÁMICA MEDIANTE REFLECTION DURANTE LA RECUPERACIÓN DE DATOS
+    public Actores() {}
+
+    public Actores(String nome, String apelidos, String nacionalidade, Peliculas pelicula) {
+        this.nome = nome;
+        this.apelidos = apelidos;
+        this.nacionalidade = nacionalidade;
+        this.pelicula = pelicula;
     }
 
-    public Integer getIdActor() { return idActor; }
-    public void setIdActor(Integer idActor) { this.idActor = idActor; }
-
+    // GETTERS Y SETTERS
+    public Long getIdActor() { return idActor; }
+    public void setIdActor(Long idActor) { this.idActor = idActor; }
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
-
     public String getApelidos() { return apelidos; }
     public void setApelidos(String apelidos) { this.apelidos = apelidos; }
-
     public String getNacionalidade() { return nacionalidade; }
     public void setNacionalidade(String nacionalidade) { this.nacionalidade = nacionalidade; }
-
-    public Pelicula getPelicula() { return pelicula; }
-    public void setPelicula(Pelicula pelicula) { this.pelicula = pelicula; }
+    public Peliculas getPelicula() { return pelicula; }
+    public void setPelicula(Peliculas pelicula) { this.pelicula = pelicula; }
 }
 ```
 
 ```java
 package org.example.model;
-
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
+// CLASE ENTIDAD QUE MAPEA LA TABLA 'PELICULAS' EN POSTGRES
 @Entity
 @Table(name = "peliculas")
-public class Pelicula {
+public class Peliculas {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // INDICA QUE EL ID ES AUTOINCREMENTAL Y QUE LA BASE DE DATOS SE ENCARGA DE GENERARLO
-    @Column(name = "idPelicula") // MAPEADO EXPLÍCITO PARA ASEGURAR QUE COINCIDA CON EL NOMBRE DE LA COLUMNA EN EL SCRIPT SQL
-    private Integer idPelicula;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long idPelicula;
 
-    @Column(name = "titulo") // VINCULA ESTA VARIABLE CON LA COLUMNA TITULO DE LA TABLA
+    @Column(length = 150)
     private String titulo;
 
-    @Column(name = "xenero")
+    @Column(length = 50)
     private String xenero;
 
-    @Column(name = "ano")
     private Integer ano;
 
+    // RELACION UNO A MUCHOS BIDIRECCIONAL CON ACTORES
+    // JSONMANAGEDREFERENCE PERMITE SERIALIZAR LA LISTA DE HIJOS
     @OneToMany(mappedBy = "pelicula", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    // DEFINE LA RELACIÓN DE UNA PELÍCULA HACIA MUCHOS ACTORES USANDO EL CAMPO PELICULA DE LA CLASE ACTOR
-    // CASCADE ALL PERMITE QUE SI BORRAMOS UNA PELÍCULA TAMBIÉN SE BORREN SUS ACTORES ASOCIADOS
-    // FETCH LAZY EVITA CARGAR LOS ACTORES DE GOLPE A MENOS QUE LOS PIDAMOS EXPLÍCITAMENTE, MEJORANDO EL RENDIMIENTO
-    private List<Actor> actores; // LISTA QUE CONTENDRÁ TODOS LOS OBJETOS ACTOR VINCULADOS A ESTA PELÍCULA
+    @JsonManagedReference
+    private List<Actores> actores = new ArrayList<>();
 
-    public Pelicula() {} // CONSTRUCTOR POR DEFECTO REQUERIDO POR JPA PARA PODER CREAR INSTANCIAS DINÁMICAMENTE
+    public Peliculas() {}
 
-    public Integer getIdPelicula() {
-        return idPelicula;
-    }
-
-    public void setIdPelicula(Integer idPelicula) {
-        this.idPelicula = idPelicula;
-    }
-
-    public String getTitulo() {
-        return titulo;
-    }
-
-    public void setTitulo(String titulo) {
+    public Peliculas(String titulo, String xenero, Integer ano) {
         this.titulo = titulo;
-    }
-
-    public String getXenero() {
-        return xenero;
-    }
-
-    public void setXenero(String xenero) {
         this.xenero = xenero;
-    }
-
-    public Integer getAno() {
-        return ano;
-    }
-
-    public void setAno(Integer ano) {
         this.ano = ano;
     }
 
-    public List<Actor> getActores() {
-        return actores;
-    }
+    // GETTERS Y SETTERS
+    public Long getIdPelicula() { return idPelicula; }
+    public void setIdPelicula(Long idPelicula) { this.idPelicula = idPelicula; }
+    public String getTitulo() { return titulo; }
+    public void setTitulo(String titulo) { this.titulo = titulo; }
+    public String getXenero() { return xenero; }
+    public void setXenero(String xenero) { this.xenero = xenero; }
+    public Integer getAno() { return ano; }
+    public void setAno(Integer ano) { this.ano = ano; }
+    public List<Actores> getActores() { return actores; }
 
-    public void setActores(List<Actor> actores) {
+    // METODO PARA MANTENER LA CONSISTENCIA DE LA RELACION
+    public void setActores(List<Actores> actores) {
         this.actores = actores;
+        if(this.actores != null){
+            this.actores.forEach(a -> a.setPelicula(this));
+        }
     }
-
 }
 ```
 
@@ -210,39 +200,38 @@ public class Pelicula {
 
 
 ```java
-
 package org.example.repository;
 
-import org.example.model.Pelicula;
+import org.example.model.Actores;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
-@Repository // INDICA A SPRING QUE ESTA INTERFAZ ES UN COMPONENTE DE ACCESO A DATOS (DAO) Y DEBE SER ESCANEADO PARA LA INYECCIÓN DE DEPENDENCIAS
-public interface PeliculaRepository extends JpaRepository<Pelicula, Integer> { 
-    // HEREDAR DE JPAREPOSITORY PROPORCIONA TODOS LOS MÉTODOS CRUD ESTÁNDAR (SAVE, FINDALL, DELETE) ESPECIFICANDO QUE TRABAJAMOS CON LA ENTIDAD PELICULA Y QUE SU CLAVE PRIMARIA ES DE TIPO INTEGER
-
-    List<Pelicula> findByTitulo(String titulo); 
-    // DEFINE UNA CONSULTA DERIVADA QUE GENERA AUTOMÁTICAMENTE EL SQL "SELECT * FROM PELICULAS WHERE TITULO = ?" // ESTA FUNCIÓN ES ESENCIAL PARA QUE EL MICROSERVICIO MONGOCHAMADOR PUEDA SOLICITAR PELÍCULAS ESPECÍFICAS POR SU NOMBRE Y LUEGO PROCESARLAS HACIA MONGODB
+// REPOSITORIO JPA PARA LA ENTIDAD ACTORES
+@Repository
+public interface ActoresRepository extends JpaRepository<Actores, Long> {
+    // METODOS DE BUSQUEDA PERSONALIZADOS SEGUN REQUISITOS
+    List<Actores> findByNome(String nome);
+    List<Actores> findByNacionalidade(String nacionalidade);
+}
 }
 
 ```
 
 ```java
-
 package org.example.repository;
 
-import org.example.model.Actor;
+import org.example.model.Peliculas;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
-@Repository // MARCA LA INTERFAZ COMO UN REPOSITORIO GESTIONADO POR EL CONTENEDOR DE SPRING PARA EL MANEJO DE EXCEPCIONES DE PERSISTENCIA
-public interface ActorRepository extends JpaRepository<Actor, Integer> { 
-    // ESTABLECE LA CONEXIÓN CON LA TABLA ACTORES PERMITIENDO REALIZAR OPERACIONES SOBRE LA ENTIDAD ACTOR CUYO IDENTIFICADOR ES UN INTEGER
-
-    List<Actor> findByPelicula_IdPelicula(Integer idPelicula); 
-    // ESTE MÉTODO UTILIZA LA CONVENCIÓN DE NOMBRES DE JPA PARA "NAVEGAR" POR LA RELACIÓN: BUSCA EN EL ATRIBUTO "PELICULA" (EL OBJETO RELACIONADO) Y FILTRA POR SU CAMPO "IDPELICULA" // ES ESENCIAL PARA RECUPERAR LOS 3 ACTORES DE CADA PELÍCULA QUE POSTERIORMENTE ENVIAREMOS AL MICROSERVICIO DE MONGO
+// REPOSITORIO JPA PARA LA ENTIDAD PELICULAS
+@Repository
+public interface PeliculasRepository extends JpaRepository<Peliculas, Long> {
+    // METODOS DE BUSQUEDA PERSONALIZADOS SEGUN REQUISITOS
+    List<Peliculas> findByTitulo(String titulo);
+    List<Peliculas> findByXenero(String xenero);
 }
 
 ```
@@ -252,43 +241,50 @@ public interface ActorRepository extends JpaRepository<Actor, Integer> {
 ### SERVICE PeliculaService.java Y ActorService.java 🦂
 
 >[!NOTE]
->******
+>***La capa Service es el intermediario obligatorio entre el Controlador (quien recibe las órdenes) y el Repositorio (quien tiene los datos).***
+
+- ***Gestión de Nulos: El uso de Optional<Peliculas>. Definimos que puede contener una película o estar vacía. Esto nos indica que el dato podría no existir, evitando errores NullPointerException en tiempo de ejecución.***
 
 ```java
 package org.example.service;
 
-import org.example.model.Pelicula;
-import org.example.repository.PeliculaRepository;
+import org.example.model.Peliculas;
+import org.example.repository.PeliculasRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-@Service // ESTA ANOTACIÓN REGISTRA LA CLASE EN EL CONTENEDOR DE SPRING COMO UN COMPONENTE DE SERVICIO, PERMITIENDO QUE SEA INYECTADO EN EL CONTROLADOR Y GESTIONANDO LAS TRANSACCIONES DE DATOS
-public class PeliculaService {
+// SERVICIO DE NEGOCIO PARA PELICULAS
+@Service
+public class PeliculasService {
 
-    @Autowired // REALIZA LA INYECCIÓN DE DEPENDENCIAS AUTOMÁTICA DEL REPOSITORIO, LO QUE PERMITE ACCEDER A LOS MÉTODOS DE PERSISTENCIA DE POSTGRESQL SIN NECESIDAD DE INSTANCIAR EL REPOSITORIO MANUALMENTE
-    private PeliculaRepository peliculaRepository;
+    @Autowired
+    private PeliculasRepository peliculasRepository;
 
-    public Pelicula guardarPelicula(Pelicula pelicula) {
-        return peliculaRepository.save(pelicula); // LLAMA AL MÉTODO SAVE DE JPA QUE REALIZA UN INSERT O UPDATE EN LA TABLA PELICULAS SEGÚN SI EL ID YA EXISTE O NO
+    // GUARDAR PELICULA
+    public Peliculas save(Peliculas pelicula) {
+        return peliculasRepository.save(pelicula);
     }
 
-    public Pelicula obtenerPeliculaPorId(Integer id) {
-        Optional<Pelicula> pelicula = peliculaRepository.findById(id); // UTILIZA EL CONTENEDOR OPTIONAL PARA EVITAR ERRORES DE PUNTERO NULO SI EL ID BUSCADO NO SE ENCUENTRA EN LA BASE DE DATOS
-        return pelicula.orElse(null); // DEVUELVE EL OBJETO PELICULA ENCONTRADO O NULO EN CASO DE QUE LA BÚSQUEDA NO HAYA TENIDO ÉXITO
+    // BUSCAR POR ID RETORNANDO OPTIONAL (ESTILO JORGE)
+    public Optional<Peliculas> findById(Long id) {
+        return peliculasRepository.findById(id);
     }
 
-    public List<Pelicula> obtenerPeliculaPorNombre(String nombre) {
-        return peliculaRepository.findByTitulo(nombre); // EJECUTA LA CONSULTA PERSONALIZADA QUE DEFINIMOS EN EL REPOSITORIO PARA FILTRAR PELÍCULAS POR SU TÍTULO EXACTO
+    // BUSCAR POR TITULO
+    public List<Peliculas> findByTitulo(String titulo) {
+        return peliculasRepository.findByTitulo(titulo);
     }
 
-    public List<Pelicula> obtenerTodasLasPeliculas() {
-        return peliculaRepository.findAll(); // RECUPERA TODOS LOS REGISTROS DE LA TABLA PELICULAS, ES ÚTIL PARA LAS SECUENCIAS DE EXPORTACIÓN A MONGO
+    // LISTAR TODAS
+    public List<Peliculas> findAll() {
+        return peliculasRepository.findAll();
     }
 
-    public void eliminarPelicula(Integer id) {
-        peliculaRepository.deleteById(id); // ELIMINA EL REGISTRO DE LA BASE DE DATOS USANDO SU CLAVE PRIMARIA
+    // BORRAR POR ID
+    public void deleteById(Long id) {
+        peliculasRepository.deleteById(id);
     }
 }
 ```
@@ -296,38 +292,43 @@ public class PeliculaService {
 ```java
 package org.example.service;
 
-import org.example.model.Actor;
-import org.example.repository.ActorRepository;
+import org.example.model.Actores;
+import org.example.repository.ActoresRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-@Service // MARCA LA CLASE COMO UN COMPONENTE ESTRATÉGICO PARA LA CAPA DE LÓGICA DE NEGOCIO, ASEGURANDO QUE SEA UN SINGLETON GESTIONADO POR EL FRAMEWORK
-public class ActorService {
+// SERVICIO DE NEGOCIO PARA ACTORES
+@Service
+public class ActoresService {
 
-    @Autowired // VINCULA AUTOMÁTICAMENTE EL REPOSITORIO DE ACTORES PARA OPERAR SOBRE LA TABLA CORRESPONDIENTE EN POSTGRESQL
-    private ActorRepository actorRepository;
+    @Autowired
+    private ActoresRepository actoresRepository;
 
-    public Actor guardarActor(Actor actor) {
-        return actorRepository.save(actor); // PERSISTE LOS DATOS DEL ACTOR; ES VITAL CUANDO EL MICROSERVICIO LLAMADOR ENVÍA NUEVOS DATOS PARA INSERTAR
+    // GUARDAR ACTOR
+    public Actores save(Actores actor) {
+        return actoresRepository.save(actor);
     }
 
-    public Actor obtenerActorPorId(Integer id) {
-        Optional<Actor> actor = actorRepository.findById(id); // BUSCA EN LA DB Y ENCAPSULA EL RESULTADO PARA MANEJAR LA POSIBLE AUSENCIA DEL DATO DE FORMA SEGURA
-        return actor.orElse(null);
+    // BUSCAR POR ID RETORNANDO OPTIONAL
+    public Optional<Actores> findById(Long id) {
+        return actoresRepository.findById(id);
     }
 
-    public List<Actor> obtenerActoresPorPelicula(Integer idPelicula) {
-        return actorRepository.findByPelicula_IdPelicula(idPelicula); // ESTE MÉTODO ES CRUCIAL PARA LA PRÁCTICA YA QUE PERMITE REUNIR A LOS 3 ACTORES QUE PERTENECEN A UNA PELÍCULA CONCRETA ANTES DE ENVIARLOS A MONGODB
+    // BUSCAR POR NOMBRE
+    public List<Actores> findByNome(String nome) {
+        return actoresRepository.findByNome(nome);
     }
 
-    public List<Actor> obtenerTodosLosActores() {
-        return actorRepository.findAll(); // DEVUELVE LA COLECCIÓN COMPLETA DE ACTORES EXISTENTES EN LA BASE DE DATOS SQL
+    // LISTAR TODOS
+    public List<Actores> findAll() {
+        return actoresRepository.findAll();
     }
 
-    public void eliminarActor(Integer id) {
-        actorRepository.deleteById(id); // BORRA EL REGISTRO DEL ACTOR SEGÚN EL ID PROPORCIONADO
+    // BORRAR POR ID
+    public void deleteById(Long id) {
+        actoresRepository.deleteById(id);
     }
 }
 ```
@@ -337,63 +338,64 @@ public class ActorService {
 ### CONTROLLER RestPeliculas.java Y RestActores.java🦠
 
 >[!NOTE]
->***Esta capa se encarga de escuchar lo que llega por la red y decide qué hacer con esa información. En este caso, el controlador está en el puerto 8085 esperando a que el microservicio de mongo le envíe o pida datos***
+>***El Controller es la "puerta de entrada". Se encarga de escuchar las peticiones HTTP que llegan por la red al puerto 8085. Su función principal no es pensar, sino recibir la orden, pasársela al Service y devolver una respuesta adecuada al cliente (en este caso, al microservicio MongoChamador).***
 
-<br>
+>[!CAUTION]
+>***`ResponseEntity<T>:` No devolvemos el objeto "a secas" (un return Pelicula). Lo envolvemos en un ResponseEntity. ¿Por qué? Porque así tenemos control total sobre el Código de Estado HTTP. Si todo va bien, devolvemos un 200 OK (ResponseEntity.ok()), pero si buscamos un ID que no existe, podemos devolver un error 404 (ResponseEntity.notFound()). Esto es vital para que quien consuma nuestra API sepa qué ha pasado.***
 
-***Las 3 funciones principales del controller son:***
-
-- **Mapeo de rutas ( ENDPOINTS ): **
-
+>***`@RestController` : A diferencia de un @Controller normal (que devolvería una página web HTML), esta anotación indica que la respuesta será puro texto en formato JSON, que es el estándar para la comunicación entre microservicios.***
 
 
 ```java
 package org.example.controller;
 
-import org.example.model.Pelicula;
-import org.example.service.PeliculaService;
+import org.example.model.Peliculas;
+import org.example.service.PeliculasService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-@RestController // CONVIERTE LA CLASE EN UN PUNTO DE ENTRADA HTTP QUE DEVUELVE RESPUESTAS EN JSON, ES EL INTERFAZ QUE EL MICROSERVICIO MONGOCHAMADOR USARÁ PARA COMUNICARSE
-@RequestMapping("/peliculas") // ESTABLECE LA RUTA BASE URL PARA TODAS LAS PETICIONES RELACIONADAS CON LAS PELÍCULAS (EJ: HTTP://LOCALHOST:8081/PELICULAS)
+// CONTROLADOR REST PARA PELICULAS
+@RestController
+@RequestMapping("/postgres/peliculas")
 public class RestPeliculas {
 
-    @Autowired // INYECTA EL SERVICIO PARA QUE EL CONTROLADOR PUEDA DELEGARLE LA LÓGICA DE ACCESO A DATOS
-    private PeliculaService peliculaService;
+    @Autowired
+    private PeliculasService peliculasService;
 
-    @PostMapping // MAPEA PETICIONES HTTP POST PARA LA CREACIÓN DE REGISTROS; ES EL MÉTODO QUE RECIBIRÁ LA PELÍCULA DESDE EL OTRO MICROSERVICIO
-    public Pelicula crearPelicula(@RequestBody Pelicula pelicula) { 
-        // @REQUESTBODY ES ESENCIAL: TOMA EL JSON QUE LLEGA EN LA PETICIÓN Y LO CONVIERTE AUTOMÁTICAMENTE EN UN OBJETO JAVA DE TIPO PELICULA
-        return peliculaService.guardarPelicula(pelicula); // DEVUELVE EL OBJETO GUARDADO, INCLUYENDO EL ID GENERADO POR POSTGRESQL, NECESARIO PARA OPERACIONES POSTERIORES
+    // CREAR PELICULA
+    @PostMapping
+    public ResponseEntity<Peliculas> create(@RequestBody Peliculas pelicula) {
+        // VINCULAMOS ACTORES A LA PELICULA ANTES DE GUARDAR
+        if(pelicula.getActores() != null) {
+            pelicula.getActores().forEach(a -> a.setPelicula(pelicula));
+        }
+        return ResponseEntity.ok(peliculasService.save(pelicula));
     }
 
-    @GetMapping("/{id}") // MAPEA PETICIONES GET CON UN PARÁMETRO DINÁMICO EN LA URL PARA BUSCAR PELÍCULAS ESPECÍFICAS
-    public Pelicula obtenerPeliculaPorId(@PathVariable Integer id) { 
-        // @PATHVARIABLE EXTRAE EL VALOR QUE VIENE EN LA URL Y LO PASA COMO ARGUMENTO AL MÉTODO DE BÚSQUEDA
-        return peliculaService.obtenerPeliculaPorId(id);
+    // OBTENER POR ID USANDO MAP Y ORELSEGET (OPTIONAL)
+    @GetMapping("/{id}")
+    public ResponseEntity<Peliculas> getById(@PathVariable Long id) {
+        return peliculasService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/nombre/{nombre}") // RUTA ESPECÍFICA PARA LA BÚSQUEDA POR TÍTULO EXIGIDA EN LOS REQUISITOS DE LA PRÁCTICA
-    public List<Pelicula> obtenerPeliculaPorNombre(@PathVariable String nombre) {
-        return peliculaService.obtenerPeliculaPorNombre(nombre);
+    // OBTENER POR TITULO
+    @GetMapping("/titulo/{titulo}")
+    public ResponseEntity<List<Peliculas>> getByTitulo(@PathVariable String titulo) {
+        List<Peliculas> peliculas = peliculasService.findByTitulo(titulo);
+        if(peliculas.isEmpty()){
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(peliculas);
     }
 
-    @GetMapping // MAPEA LA RUTA RAIZ DEL CONTROLADOR PARA OBTENER EL LISTADO COMPLETO DE FILMES
-    public List<Pelicula> obtenerTodasLasPeliculas() {
-        return peliculaService.obtenerTodasLasPeliculas();
-    }
-
-    @PutMapping("/{id}") // MÉTODO PARA ACTUALIZAR REGISTROS EXISTENTES; RECIBE EL ID POR URL Y LOS NUEVOS DATOS POR EL CUERPO DE LA PETICIÓN
-    public Pelicula actualizarPelicula(@PathVariable Integer id, @RequestBody Pelicula pelicula) {
-        pelicula.setIdPelicula(id); // ASEGURA QUE EL OBJETO QUE VAMOS A GUARDAR TENGA EL ID CORRECTO PARA QUE JPA REALICE UN UPDATE EN LUGAR DE UN INSERT
-        return peliculaService.guardarPelicula(pelicula);
-    }
-
-    @DeleteMapping("/{id}") // MAPEA LA ELIMINACIÓN DE DATOS A TRAVÉS DE UNA PETICIÓN HTTP DELETE
-    public void eliminarPelicula(@PathVariable Integer id) {
-        peliculaService.eliminarPelicula(id);
+    // LISTAR TODAS
+    @GetMapping
+    public ResponseEntity<List<Peliculas>> getAll() {
+        return ResponseEntity.ok(peliculasService.findAll());
     }
 }
 ```
@@ -401,50 +403,46 @@ public class RestPeliculas {
 ```java
 package org.example.controller;
 
-import org.example.model.Actor;
-import org.example.service.ActorService;
+import org.example.model.Actores;
+import org.example.service.ActoresService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-@RestController // DEFINE ESTA CLASE COMO UN CONTROLADOR REST, LO QUE PERMITE LA COMUNICACIÓN ENTRE LOS DOS MICROSERVICIOS MEDIANTE PROTOCOLO HTTP
-@RequestMapping("/actores") // DEFINE LA URL BASE PARA LAS OPERACIONES CON ACTORES DENTRO DEL MICROSERVICIO PELISPOSTGRES
+// CONTROLADOR REST PARA ACTORES
+@RestController
+@RequestMapping("/postgres/actores")
 public class RestActores {
 
-    @Autowired // INYECTA EL SERVICIO DE ACTORES PARA QUE EL CONTROLADOR PUEDA REALIZAR OPERACIONES SOBRE LA BASE DE DATOS POSTGRESQL
-    private ActorService actorService;
+    @Autowired
+    private ActoresService actoresService;
 
-    @PostMapping // PERMITE QUE EL MICROSERVICIO MONGOCHAMADOR ENVÍE DATOS DE ACTORES PARA SER INSERTADOS EN LA TABLA DE POSTGRESQL
-    public Actor crearActor(@RequestBody Actor actor) { 
-        // TRANSFORMA EL JSON RECIBIDO EN UN OBJETO ACTOR PARA SU PROCESAMIENTO
-        return actorService.guardarActor(actor);
+    // CREAR ACTOR
+    @PostMapping
+    public ResponseEntity<Actores> create(@RequestBody Actores actor) {
+        return ResponseEntity.ok(actoresService.save(actor));
     }
 
-    @GetMapping("/{id}") // DEFINE EL ENDPOINT PARA CONSULTAR UN ACTOR POR SU IDENTIFICADOR ÚNICO
-    public Actor obtenerActorPorId(@PathVariable Integer id) {
-        return actorService.obtenerActorPorId(id);
+    // OBTENER POR ID
+    @GetMapping("/{id}")
+    public ResponseEntity<Actores> getById(@PathVariable Long id) {
+        return actoresService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/pelicula/{idPelicula}") // ENDPOINT ESPECIALIZADO PARA RECUPERAR TODOS LOS ACTORES QUE TRABAJAN EN UNA PELÍCULA CONCRETA
-    public List<Actor> obtenerActoresPorPelicula(@PathVariable Integer idPelicula) {
-        // ES FUNDAMENTAL PARA RECONSTRUIR EL OBJETO COMPLETO QUE LUEGO SE GUARDARÁ EN MONGODB
-        return actorService.obtenerActoresPorPelicula(idPelicula);
+    // OBTENER POR NOMBRE
+    @GetMapping("/nome/{nome}")
+    public ResponseEntity<List<Actores>> getByNome(@PathVariable String nome) {
+        List<Actores> actores = actoresService.findByNome(nome);
+        return ResponseEntity.ok(actores);
     }
 
-    @GetMapping // DEVUELVE LA LISTA TOTAL DE ACTORES EN FORMATO JSON
-    public List<Actor> obtenerTodosLosActores() {
-        return actorService.obtenerTodosLosActores();
-    }
-
-    @PutMapping("/{id}") // PERMITE LA ACTUALIZACIÓN DE DATOS DE UN ACTOR EXISTENTE
-    public Actor actualizarActor(@PathVariable Integer id, @RequestBody Actor actor) {
-        actor.setIdActor(id); // VINCULA EL ID DE LA URL AL OBJETO PARA GARANTIZAR QUE SE ACTUALIZA EL REGISTRO CORRECTO
-        return actorService.guardarActor(actor);
-    }
-
-    @DeleteMapping("/{id}") // GESTIONA LA PETICIÓN DE ELIMINACIÓN DE UN ACTOR POR SU ID
-    public void eliminarActor(@PathVariable Integer id) {
-        actorService.eliminarActor(id);
+    // LISTAR TODOS
+    @GetMapping
+    public ResponseEntity<List<Actores>> getAll() {
+        return ResponseEntity.ok(actoresService.findAll());
     }
 }
 ```
@@ -452,6 +450,10 @@ public class RestActores {
 ---
 
 # CONFIGURACIÓN DE MONGOCHAMADOR 
+
+>[!NOTE]
+>***En Postgres teníamos dos tablas separadas, pero en Mongo optamos por la desnormalización para ganar velocidad de lectura.***
+
 
 ### ESTRUCTURA DE ARCHIVOS
 
@@ -462,22 +464,17 @@ public class RestActores {
 ###  APPLICATION.PROPERTIES 👹
 
 ```java
-# CONFIGURACIÓN DEL PROTOCOLO DE CONEXIÓN PARA LA BASE DE DATOS NOSQL MONGODB
-spring.data.mongodb.uri=mongodb://172.20.10.2:27017/peliculasDB 
-# ESPECIFICA EL URI DE CONEXIÓN QUE INCLUYE EL PROTOCOLO MONGODB, LA IP DE TU MÁQUINA VIRTUAL (172.20.10.2), EL PUERTO POR DEFECTO DE MONGO (27017) Y EL NOMBRE DEL CLÚSTER O BASE DE DATOS DESTINO
-
-# DEFINICIÓN EXPLÍCITA DEL NOMBRE DE LA BASE DE DATOS DENTRO DE MONGODB
-spring.data.mongodb.database=peliculasDB 
-# ASEGURA QUE TODAS LAS OPERACIONES DE LOS REPOSITORIOS DE MONGO SE REALICEN DENTRO DE ESTE CONTENEDOR DE DATOS ESPECÍFICO LLAMADO PELICULASDB
-
-# DEFINICIÓN DEL PUERTO DE RED PARA EL MICROSERVICIO MONGOCHAMADOR
-server.port=8086 
-# ESTE ES UN PUNTO CRÍTICO: ESTABLECEMOS EL PUERTO 8086 PARA EVITAR EL CONFLICTO CON EL PUERTO 8085 DONDE YA ESTÁ CORRIENDO PELISPOSTGRES, PERMITIENDO ASÍ LA EJECUCIÓN SIMULTÁNEA DE AMBOS SERVICIOS
+spring.data.mongodb.uri=mongodb://172.20.10.2:27017/peliculasDB
+spring.data.mongodb.database=peliculasDB
+server.port=8086
 ```
 
 ---
 
-### MODEL Pelicula.java Y Actor.java 💀
+### MODEL Peliculas.java Y Actores.java 💀
+
+>[!CAUTION]
+> ***@Document(collection = "peliculas"): Le indicamos a Mongo que esto se guardará en la colección "peliculas". Lo más importante aquí es la lista List<Actores>. Al no usar JPA, no hay relaciones complejas; simplemente, el objeto Película guarda dentro de sí mismo (embebida) la lista de todos sus actores. Si borras la película, se borran sus actores, porque son parte del documento.***
 
 ```java
 package org.example.model;
@@ -486,197 +483,184 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.util.List;
 
-@Document(collection = "peliculas") // DEFINE QUE ESTA CLASE SERÁ ALMACENADA COMO UN DOCUMENTO DENTRO DE UNA COLECCIÓN LLAMADA "PELICULAS" EN LA BASE DE DATOS NOSQL MONGODB
-public class Pelicula {
+// MODELO DE DOCUMENTO MONGODB
+@Document(collection = "peliculas")
+public class Peliculas {
 
-    @Id // ESTABLECE EL CAMPO COMO LA CLAVE PRIMARIA ÚNICA DE MONGODB (NORMALMENTE UN HEXADECIMAL LLAMADO OBJECTID) QUE IDENTIFICA AL DOCUMENTO DENTRO DE LA COLECCIÓN
-    private String id; 
+    @Id
+    private String id; // ID PROPIO DE MONGODB (String, autogenerado)
 
-    private Integer idPelicula; // ALMACENA EL ID ORIGINAL QUE PROVIENE DE POSTGRESQL PARA MANTENER LA TRAZABILIDAD Y PODER REALIZAR BÚSQUEDAS CRUZADAS ENTRE AMBOS SISTEMAS
+    // CAMBIO IMPORTANTE: USAMOS EL MISMO NOMBRE QUE EN EL JSON DE POSTGRES
+    private Long idPelicula;
+
     private String titulo;
     private String xenero;
     private Integer ano;
 
-    private List<Actor> actores; // ESTA ES LA DIFERENCIA CLAVE CON SQL: EN MONGODB NO USAMOS TABLAS INTERMEDIAS SINO QUE INCRUSTAMOS (EMBED) LA LISTA COMPLETA DE ACTORES DENTRO DEL DOCUMENTO PELÍCULA
-    // ESTA ESTRUCTURA PERMITE CUMPLIR EL REQUISITO DE LA PRÁCTICA DE EXPORTAR A JSON TODO EL CONTENIDO EN UN SOLO BLOQUE DE DATOS
+    // LISTA DE ACTORES EMBEBIDA
+    private List<Actores> actores;
 
-    public Pelicula() {
-        // CONSTRUCTOR VACÍO NECESARIO PARA QUE EL DRIVER DE MONGODB PUEDA INSTANCIAR EL OBJETO AL RECUPERAR DATOS DE LA BASE DE DATOS
-    }
+    public Peliculas() {}
 
     // GETTERS Y SETTERS
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
-    public Integer getIdPelicula() { return idPelicula; }
-    public void setIdPelicula(Integer idPelicula) { this.idPelicula = idPelicula; }
+    // AHORA ESTE GETTER SI EXISTE Y COINCIDE CON TU LLAMADA EN SECUENCIA
+    public Long getIdPelicula() { return idPelicula; }
+    public void setIdPelicula(Long idPelicula) { this.idPelicula = idPelicula; }
 
     public String getTitulo() { return titulo; }
     public void setTitulo(String titulo) { this.titulo = titulo; }
-
     public String getXenero() { return xenero; }
     public void setXenero(String xenero) { this.xenero = xenero; }
-
     public Integer getAno() { return ano; }
     public void setAno(Integer ano) { this.ano = ano; }
-
-    public List<Actor> getActores() { return actores; }
-    public void setActores(List<Actor> actores) { this.actores = actores; }
+    public List<Actores> getActores() { return actores; }
+    public void setActores(List<Actores> actores) { this.actores = actores; }
 }
 ```
 
 ```java
 package org.example.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+// CLASE SIMPLE PARA LOS ACTORES DENTRO DE MONGO
+// NO ES UN @DOCUMENT, ES PARTE DE LA PELICULA
+public class Actores {
 
-@Document(collection = "actores") // MARCA LA CLASE PARA SER TRATADA COMO UN DOCUMENTO INDEPENDIENTE; AUNQUE SE INCRUSTEN EN PELÍCULA, ESTA ANOTACIÓN PERMITE TAMBIÉN TENER UNA COLECCIÓN PROPIA DE ACTORES
-public class Actor {
-
-    @Id // IDENTIFICADOR ÚNICO INTERNO DE MONGODB PARA EL DOCUMENTO ACTOR
-    private String id;
-
-    private Integer idActor; // GUARDA EL IDENTIFICADOR SERIAL QUE SE GENERÓ EN LA TABLA ACTORES DE POSTGRESQL PARA REFERENCIAR EL ORIGEN DEL DATO
+    private Long idActor; // ID QUE VIENE DE POSTGRES
     private String nome;
     private String apelidos;
     private String nacionalidade;
-    
-    private Integer idPelicula; // EN MONGODB ESTE CAMPO SE MANTIENE COMO UN ENTERO SIMPLE PARA SABER A QUÉ PELÍCULA PERTENECÍA EL ACTOR EN EL SISTEMA RELACIONAL ORIGINAL
 
-    public Actor() {
-        // CONSTRUCTOR REQUERIDO POR SPRING DATA MONGODB PARA LA SERIALIZACIÓN Y DESERIALIZACIÓN DE LOS DOCUMENTOS
+    public Actores() {}
+
+    public Actores(String nome, String apelidos, String nacionalidade) {
+        this.nome = nome;
+        this.apelidos = apelidos;
+        this.nacionalidade = nacionalidade;
     }
 
     // GETTERS Y SETTERS
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public Integer getIdActor() { return idActor; }
-    public void setIdActor(Integer idActor) { this.idActor = idActor; }
-
+    public Long getIdActor() { return idActor; }
+    public void setIdActor(Long idActor) { this.idActor = idActor; }
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
-
     public String getApelidos() { return apelidos; }
     public void setApelidos(String apelidos) { this.apelidos = apelidos; }
-
     public String getNacionalidade() { return nacionalidade; }
     public void setNacionalidade(String nacionalidade) { this.nacionalidade = nacionalidade; }
-
-    public Integer getIdPelicula() { return idPelicula; }
-    public void setIdPelicula(Integer idPelicula) { this.idPelicula = idPelicula; }
 }
 ```
 
 ---
 
-### REPOSITORY PeliculaMongoRepository.java 🥷
+### REPOSITORY PeliculasRepository ActoresRepository 🥷
 
 ```java
 package org.example.repository;
 
-import org.example.model.Pelicula;
+import org.example.model.Peliculas;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-@Repository // INDICA A SPRING QUE ESTA INTERFAZ ES UN COMPONENTE DE ACCESO A DATOS PARA MONGODB, PERMITIENDO LA GESTIÓN AUTOMÁTICA DE EXCEPCIONES Y LA INYECCIÓN DE DEPENDENCIAS
-public interface PeliculaMongoRepository extends MongoRepository<Pelicula, String> {
-    // AL HEREDAR DE MONGOREPOSITORY, SPRING DATA GENERA AUTOMÁTICAMENTE TODA LA LÓGICA PARA INSERTAR, ACTUALIZAR Y ELIMINAR DOCUMENTOS EN LA COLECCIÓN "PELICULAS"
-    
-    // DEFINIMOS EL MODELO "PELICULA" COMO LA ENTIDAD A MANEJAR Y "STRING" COMO EL TIPO DE DATO DEL IDENTIFICADOR ÚNICO (_ID) DE MONGODB
-    
-    // ESTA CAPA ES VITAL EN EL MICROSERVICIO MONGOCHAMADOR PORQUE AQUÍ SE GUARDARÁN LAS PELÍCULAS JUNTO CON SUS ACTORES YA INCRUSTADOS, TRAS HABERLOS RECUPERADO DEL OTRO MICROSERVICIO (PELISPOSTGRES)
+@Repository
+public interface PeliculasRepository extends MongoRepository<Peliculas, String> {
+}
+
+```
+
+```java
+package org.example.repository;
+
+import org.example.model.Actores;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface ActoresRepository extends MongoRepository<Actores, Long> {
+    // SE USA LONG AQUI PORQUE EN TU ACTORESSERVICE BUSCAS POR LONG
+    // AUNQUE MONGO USA STRING POR DEFECTO, SPRING DATA INTENTARA ADAPTARLO
 }
 ```
 
 ---
 
-### ConexionService.java 👻
+### SERVICE ConexionService.java ActoresService.java PeliculasService.java Secuencia.java 👻
+
+>[!TIP]
+> ***`ConexionService.java` (El Cliente HTTP) Aquí usamos RestTemplate. Este servicio actúa como un navegador web: hace peticiones GET y POST a la URL http://localhost:8085/postgres/peliculas. Su trabajo es traerse el JSON que genera el otro microservicio y convertirlo (deserializarlo) en objetos Java que podamos usar.***
+
+>[!TIP]
+> ***`PeliculasService.java` Se encarga de hablar con PeliculasRepository para guardar los datos en Mongo. El Truco del ID nulo: Antes de guardar, hacemos pelicula.setId(null). ¿Por qué? Porque el objeto viene con un ID numérico de Postgres. Si intentamos guardar eso en el campo _id de Mongo, daría error o sobrescribiría documentos. Al ponerlo a null, forzamos a Mongo a crear un documento nuevo con un ID hash único.***
 
 ```java
 package org.example.service;
 
-import org.example.model.Actor;
-import org.example.model.Pelicula;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.example.model.Peliculas;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-import java.util.Arrays;
+
+import java.util.Collections;
 import java.util.List;
 
-@Service // DEFINE ESTA CLASE COMO UN SERVICIO DE LOGÍSTICA QUE SE ENCARGA DE LA COMUNICACIÓN EXTERNA MEDIANTE PROTOCOLO HTTP HACIA EL OTRO MICROSERVICIO
+@Service
 public class ConexionService {
 
-    // INSTANCIAMOS RESTTEMPLATE COMO EL CLIENTE HTTP QUE SPRING PROPORCIONA PARA REALIZAR PETICIONES REST DE FORMA SENCILLA Y SINCRÓNICA
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Autowired
+    private RestTemplate restTemplate;
 
-    // DEFINIMOS LA URL BASE APUNTANDO AL PUERTO 8085 DONDE ESTÁ ESCUCHANDO EL SERVICIO DE POSTGRESQL PARA CENTRALIZAR LAS LLAMADAS
-    private static final String BASE_URL = "http://localhost:8085/postgres";
+    // CONSTANTES CON LAS URLS DEL OTRO MICROSERVICIO (PUERTO 8085)
+    private static final String URL_BASE = "http://localhost:8085/postgres/peliculas";
 
-    public void insertarDatosEnPostgres() {
-        // CONFIGURAMOS LAS CABECERAS HTTP PARA INDICAR AL SERVIDOR QUE EL CONTENIDO QUE ENVIAMOS ES DE TIPO JSON
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        // === PROCESAMIENTO DE PELÍCULA 1 ===
-        Pelicula pelicula1 = new Pelicula();
-        pelicula1.setTitulo("El Señor de los Anillos");
-        pelicula1.setXenero("Fantasía");
-        pelicula1.setAno(2001);
-
-        // ENCAPSULAMOS EL OBJETO JAVA Y LAS CABECERAS EN UN HTTENTITY PARA QUE RESTTEMPLATE PUEDA ENVIARLO EN EL CUERPO DE LA PETICIÓN POST
-        HttpEntity<Pelicula> entity1 = new HttpEntity<>(pelicula1, headers);
-        
-        // REALIZAMOS LA LLAMADA POST: EL MICROSERVICIO PELISPOSTGRES RECIBE EL JSON, LO GUARDA EN SQL Y NOS DEVUELVE EL OBJETO CON EL ID GENERADO
-        Pelicula peliGuardada1 = restTemplate.postForObject(BASE_URL + "/peliculas", entity1, Pelicula.class);
-        System.out.println("PELÍCULA 1 INSERTADA EN POSTGRES CON ID: " + peliGuardada1.getIdPelicula());
-
-        // CONFIGURAMOS LOS ACTORES VINCULÁNDOLOS AL ID QUE ACABAMOS DE RECIBIR DE POSTGRESQL PARA MANTENER LA INTEGRIDAD REFERENCIAL
-        Actor actor1_1 = new Actor();
-        actor1_1.setNome("Elijah");
-        actor1_1.setApelidos("Wood");
-        actor1_1.setNacionalidade("Estadounidense");
-        actor1_1.setIdPelicula(peliGuardada1.getIdPelicula()); // ASIGNAMOS LA CLAVE FORÁNEA MANUALMENTE ANTES DE ENVIARLO
-
-        enviarActor(actor1_1); // LLAMADA AL MÉTODO AUXILIAR QUE GESTIONA EL ENVÍO DEL ACTOR HACIA EL CONTROLADOR DE POSTGRES
-
-        // (REPETIMOS EL PROCESO PARA EL RESTO DE ACTORES Y PELÍCULAS SEGÚN LA SECUENCIA REQUERIDA)
-        // ... (CÓDIGO DE PELÍCULA 2 SIGUIENDO LA MISMA LÓGICA)
+    // OBTENER UNA PELICULA POR ID (GET)
+    public Peliculas getPeliculasById(Long id) {
+        try {
+            String url = URL_BASE + "/" + id;
+            ResponseEntity<Peliculas> response = restTemplate.exchange(
+                    url, HttpMethod.GET, null, Peliculas.class
+            );
+            return response.getBody();
+        } catch (HttpClientErrorException e) {
+            System.out.println("ERROR CONECTANDO A POSTGRES (ID " + id + "): " + e.getMessage());
+            return null;
+        }
     }
 
-    private void enviarActor(Actor actor) {
-        // MÉTODO PRIVADO PARA REUTILIZAR LA LÓGICA DE ENVÍO DE ACTORES HACIA EL ENDPOINT DE POSTGRESQL
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Actor> entity = new HttpEntity<>(actor, headers);
-        
-        // ENVIAMOS EL ACTOR AL MICROSERVICIO EN EL PUERTO 8085; EL TIPO STRING.CLASS INDICA QUE ESPERAMOS UNA RESPUESTA SIMPLE O TEXTUAL
-        restTemplate.postForObject(BASE_URL + "/actores", entity, String.class);
-        System.out.println("ACTOR TRASPASADO EXITOSAMENTE A POSTGRES: " + actor.getNome());
+    // OBTENER PELICULAS POR TITULO (GET) - DEVUELVE LISTA
+    public List<Peliculas> getPeliculasByTitulo(String titulo) {
+        try {
+            String url = URL_BASE + "/titulo/" + titulo;
+            ResponseEntity<List<Peliculas>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, null,
+                    new ParameterizedTypeReference<List<Peliculas>>() {}
+            );
+            return response.getBody();
+        } catch (HttpClientErrorException e) {
+            System.out.println("ERROR CONECTANDO A POSTGRES (TITULO " + titulo + "): " + e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
-    public Pelicula obtenerPeliculaPorId(int id) {
-        // REALIZA UNA PETICIÓN GET AL OTRO MICROSERVICIO PARA RECUPERAR LOS DATOS DE UNA PELÍCULA USANDO SU IDENTIFICADOR TÉCNICO
-        // RESTTEMPLATE TRANSFORMA AUTOMÁTICAMENTE EL JSON RECIBIDO EN UNA INSTANCIA DE NUESTRA CLASE PELICULA
-        return restTemplate.getForObject(BASE_URL + "/peliculas/" + id, Pelicula.class);
-    }
+    // CREAR UNA PELICULA NUEVA EN POSTGRES (POST)
+    public Peliculas createPeliculas(Peliculas pelicula) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Peliculas> request = new HttpEntity<>(pelicula, headers);
 
-    public List<Pelicula> obtenerPeliculaPorNombre(String nombre) {
-        // PARA RECUPERAR LISTAS UTILIZAMOS UN ARRAY TEMPORAL YA QUE RESTTEMPLATE NECESITA SABER EXACTAMENTE A QUÉ CLASE MAPEAR EL JSON DE RESPUESTA
-        Pelicula[] peliculas = restTemplate.getForObject(BASE_URL + "/peliculas/nombre/" + nombre, Pelicula[].class);
-        
-        // CONVERTIMOS EL ARRAY EN UNA LISTA DE JAVA PARA FACILITAR SU MANIPULACIÓN EN LA LÓGICA DE MONGODB
-        return Arrays.asList(peliculas != null ? peliculas : new Pelicula[0]);
-    }
-
-    public List<Actor> obtenerActoresPorPelicula(Integer idPelicula) {
-        // ESTE MÉTODO ES CRUCIAL: PIDE AL MICROSERVICIO POSTGRES TODOS LOS ACTORES QUE PERTENECEN A UNA PELÍCULA CONCRETA
-        // ES EL PASO PREVIO NECESARIO ANTES DE INCRUSTARLOS DENTRO DEL DOCUMENTO DE MONGODB
-        Actor[] actores = restTemplate.getForObject(BASE_URL + "/actores/pelicula/" + idPelicula, Actor[].class);
-        return Arrays.asList(actores != null ? actores : new Actor[0]);
+            ResponseEntity<Peliculas> response = restTemplate.exchange(
+                    URL_BASE, HttpMethod.POST, request, Peliculas.class
+            );
+            return response.getBody();
+        } catch (HttpClientErrorException e) {
+            System.out.println("ERROR AL CREAR EN POSTGRES: " + e.getMessage());
+            return null;
+        }
     }
 }
 ```
@@ -688,109 +672,239 @@ public class ConexionService {
 ```java
 package org.example.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.model.Actor;
-import org.example.model.Pelicula;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.MongoTemplate;
+import org.example.model.Actores;
+import org.example.model.Peliculas;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class Secuencia {
+
+    private final ConexionService conexionService;
+    private final PeliculasService peliculasService;
+
+    // INYECCION DE DEPENDENCIAS
+    public Secuencia(ConexionService conexionService, PeliculasService peliculasService) {
+        this.conexionService = conexionService;
+        this.peliculasService = peliculasService;
+    }
+
+    public void executar() {
+        System.out.println("INICIANDO SECUENCIAAAAAAAAAAAAAAAAAAAA");
+
+        // LIMPIAR
+        peliculasService.borrarTodo();
+
+
+        // PREPARAR DATOS DE PRUEBA EN MEMORIA
+        List<Actores> Titanic = new ArrayList<>();
+        Titanic.add(new Actores("Leonardo", "DiCaprio", "Otaku"));
+        Titanic.add(new Actores("Otaku", "Otake", "Otaku"));
+        Titanic.add(new Actores("Bobi", "Otakech", "Otaku"));
+        Peliculas p1 = new Peliculas();
+        p1.setTitulo("TITANIC");
+        p1.setXenero("TERROR");
+        p1.setAno(1997);
+        p1.setActores(Titanic);
+
+        List<Actores> Avatar = new ArrayList<>();
+        Avatar.add(new Actores("Mari", "MJ", "ONICHa"));
+        Avatar.add(new Actores("Arigato", "Brawl", "Stars"));
+        Avatar.add(new Actores("Dirham", "Juli", "Royale"));
+        Peliculas p2 = new Peliculas();
+        p2.setTitulo("Avatar");
+        p2.setXenero("Sci-Fi");
+        p2.setAno(2009);
+        p2.setActores(Avatar);
+
+
+        // INSERTAR EN POSTGRES
+        System.out.println("\nENVIANDO DATOSSSS");
+
+        // AL GUARDAR, RECUPERAMOS EL OBJETO CON EL ID QUE LE HA PUESTO LA BBDD
+        p1 = conexionService.createPeliculas(p1);
+        p2 = conexionService.createPeliculas(p2);
+
+
+        // SINCRONIZAR POR ID (LEER DE POSTGRES -> GUARDAR EN MONGO)
+        if (p1 != null) {
+            System.out.println("\nBUSCANDO POR ID: " + p1.getIdPelicula());
+
+            // PEDIMOS A POSTGRES QUE NOS DEVUELVA LA PELICULA COMPLETA
+            Peliculas recuperadaId = conexionService.getPeliculasById(p1.getIdPelicula());
+
+            if (recuperadaId != null) {
+                // LA GUARDAMOS EN MONGO
+                peliculasService.guardarEnMongo(recuperadaId);
+            }
+        }
+
+        // SINCRONIZAR POR TITULO (LEER DE POSTGRES -> GUARDAR EN MONGO)
+        String tituloBuscar = "Avatar";
+        System.out.println("\nBUSCANDO POR TITULO: " + tituloBuscar);
+
+        List<Peliculas> resultados = conexionService.getPeliculasByTitulo(tituloBuscar);
+
+        if (resultados != null && !resultados.isEmpty()) {
+            Peliculas recuperadaTitulo = resultados.get(0); // COGEMOS LA PRIMERA
+
+            // LA GUARDAMOS EN MONGO
+            peliculasService.guardarEnMongo(recuperadaTitulo);
+        }
+
+        // EXPORTAR RESULTADO A JSON
+        System.out.println("\nGENERANDO ARCHIVO JSON...");
+        peliculasService.exportarJson();
+
+        System.out.println("\nSECUENCIA FINALISSSSSADA");
+    }
+}
+```
+
+```java
+package org.example.service;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import org.example.model.Peliculas;
+import org.example.repository.PeliculasRepository;
 import org.springframework.stereotype.Service;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
-@Service // DEFINE ESTA CLASE COMO EL COMPONENTE DIRECTOR QUE ORQUESTA EL FLUJO DE DATOS ENTRE LAS DISTINTAS BASES DE DATOS Y SERVICIOS EXTERNOS
-public class Secuencia {
+@Service
+public class PeliculasService {
 
-    @Autowired // INYECTA EL SERVICIO DE CONEXIÓN QUE ACTÚA COMO CLIENTE REST PARA HABLAR CON EL MICROSERVICIO PELISPOSTGRES EN EL PUERTO 8085
-    private ConexionService conexionService;
+    private final PeliculasRepository peliculasRepo;
 
-    @Autowired // INYECTA EL OBJETO DE CONFIGURACIÓN DE MONGODB QUE PERMITE REALIZAR OPERACIONES DE BAJO NIVEL EN LA BASE DE DATOS NOSQL SIN NECESIDAD DE REPOSITORIOS
-    private MongoTemplate mongoTemplate;
-
-    public void ejecutarSecuencia() {
-        try {
-            // PASO 1: ORDENAR AL MICROSERVICIO EXTERNO QUE RELLENE LAS TABLAS DE POSTGRESQL CON LOS DATOS DE PRUEBA INICIALES
-            conexionService.insertarDatosEnPostgres(); 
-            // ESTA LLAMADA ACTIVA UNA SERIE DE POSTS HACIA EL PUERTO 8085 PARA CREAR EL ESCENARIO DE DATOS
-
-            // PASO 2: RECUPERAR UNA PELÍCULA ESPECÍFICA MEDIANTE SU CLAVE PRIMARIA DESDE POSTGRES PARA MIGRARLA A MONGO
-            Pelicula peliculaPorId = conexionService.obtenerPeliculaPorId(1);
-            if (peliculaPorId != null) {
-                // ANTES DE INSERTAR, PODRÍAS LLAMAR A CONEXIONSERVICE PARA TRAER SUS ACTORES E INCRUSTARLOS EN LA LISTA
-                List<Actor> actores = conexionService.obtenerActoresPorPelicula(peliculaPorId.getIdPelicula());
-                peliculaPorId.setActores(actores); // SE CUMPLE EL REQUISITO DE "CON TODOS SUS ACTORES"
-
-                mongoTemplate.insert(peliculaPorId, "peliculas"); // GUARDA EL OBJETO COMPLETO COMO UN ÚNICO DOCUMENTO EN LA COLECCIÓN DE MONGODB
-                System.out.println("PELÍCULA CON ACTORES INSERTADA EN MONGO MEDIANTE ID");
-            }
-
-            // PASO 3: REALIZAR UNA BÚSQUEDA POR TÍTULO EN EL SERVICIO REST Y TRASPASAR LOS RESULTADOS A LA BASE DE DATOS NOSQL
-            List<Pelicula> peliculasPorNombre = conexionService.obtenerPeliculaPorNombre("Inception");
-            if (peliculasPorNombre != null && !peliculasPorNombre.isEmpty()) {
-                for (Pelicula pelicula : peliculasPorNombre) {
-                    // IGUAL QUE ANTES, BUSCAMOS LOS ACTORES EN POSTGRES PARA QUE EL DOCUMENTO DE MONGO ESTÉ COMPLETO
-                    pelicula.setActores(conexionService.obtenerActoresPorPelicula(pelicula.getIdPelicula()));
-                    mongoTemplate.insert(pelicula, "peliculas");
-                }
-                System.out.println("PELÍCULAS ENCONTRADAS POR NOMBRE VOLCADAS A MONGODB");
-            }
-
-            // PASO 4: EXTRAER TODA LA INFORMACIÓN YA CONSOLIDADA EN MONGODB PARA GENERAR EL INFORME FINAL EN FORMATO DISCO
-            List<Pelicula> todasLasPeliculas = mongoTemplate.findAll(Pelicula.class, "peliculas");
-            exportarAJson(todasLasPeliculas);
-
-        } catch (Exception e) {
-            // CAPTURA CUALQUIER ERROR DURANTE LA SECUENCIA, COMO FALLOS DE RED CON EL PUERTO 8085 O ERRORES DE ESCRITURA EN MONGODB
-            e.printStackTrace();
-        }
+    // INYECCION POR CONSTRUCTOR
+    public PeliculasService(PeliculasRepository peliculasRepo) {
+        this.peliculasRepo = peliculasRepo;
     }
 
-    private void exportarAJson(List<Pelicula> peliculas) {
-        try {
-            // UTILIZA LA LIBRERÍA JACKSON (OBJECTMAPPER) PARA TRADUCIR LOS OBJETOS JAVA A UNA ESTRUCTURA DE TEXTO JSON ESTÁNDAR
-            ObjectMapper objectMapper = new ObjectMapper();
-            String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(peliculas); // FORMATEA EL JSON PARA QUE SEA LEGIBLE POR HUMANOS
+    // METODO PARA GUARDAR EN MONGO ( CREAR O ACTUALIZAR LA PELÍCULA )
+    public void guardarEnMongo(Peliculas pelicula) {
+        // AL TRAER EL OBJETO DE POSTGRES, VIENE CON UN ID NUMERICO.
+        // MONGO NECESITA SU PROPIO ID (STRING HASH). SI NO PONEMOS EL ID A NULL,
+        // SPRING DATA INTENTARA USAR EL NUMERO COMO _ID Y PUEDE DAR ERROR.
+        pelicula.setId(null);
 
-            // ABRE UN FLUJO DE ESCRITURA HACIA EL SISTEMA DE ARCHIVOS PARA PERSISTIR LOS DATOS FUERA DE LAS BASES DE DATOS
-            try (FileWriter file = new FileWriter("peliculas.json")) {
-                file.write(json);
-                System.out.println("ARCHIVO peliculas.json GENERADO EXITOSAMENTE CON TODA LA INFORMACIÓN UNIFICADA");
-            }
+        // GUARDAMOS LA PELICULA (CON SUS ACTORES DENTRO)
+        peliculasRepo.save(pelicula);
+        System.out.println("PELICULA GUARDADA EN MONGOOOUODB: " + pelicula.getTitulo());
+    }
+
+    // METODO PARA EXPORTAR A JSON
+    public void exportarJson() {
+
+        // RECUPERAMOS TODOS LOS DOCUMENTOS DE LA COLECCION DE MONGO
+        List<Peliculas> lista = peliculasRepo.findAll();
+
+        // CONFIGURAMOS GSON CON 'PRETTY PRINTING' PARA QUE EL ARCHIVO SEA LEGIBLE
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        String nombreArchivo = "peliculas_mongo.json";
+
+        try (FileWriter escritor = new FileWriter(nombreArchivo)) {
+            gson.toJson(lista, escritor);
+            System.out.println("JSON GENERADO EN '" + nombreArchivo + "'");
         } catch (IOException e) {
-            // GESTIONA POSIBLES ERRORES DE PERMISOS O ESPACIO AL INTENTAR CREAR EL ARCHIVO FÍSICO
-            e.printStackTrace();
+            System.err.println("ERROR AL ESCRIBIR EL JSON: " + e.getMessage());
         }
     }
+
+    // LIMPIAR BD
+    public void borrarTodo() {
+        peliculasRepo.deleteAll();
+    }
+}
+```
+
+```java
+package org.example.service;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import org.example.model.Actores;
+import org.example.repository.ActoresRepository;
+import org.springframework.stereotype.Service;
+
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.lang.reflect.Type;
+import java.util.List;
+
+@Service
+public class ActoresService {
+
+    private final ActoresRepository ActoresRepo;
+
+    public ActoresService(ActoresRepository ActoresRepo) {
+        this.ActoresRepo = ActoresRepo;
+    }
+
+    public void crearActualizarActores(Actores a) {
+        ActoresRepo.save(a);
+    }
+
+    public void borrarActoress() {
+        ActoresRepo.deleteAll();
+    }
+
+    public Actores buscarActores(Long id) {
+        return ActoresRepo.findById(id).orElse(null);
+    }
+
+    public List<Actores> buscarActoreses() {
+        return ActoresRepo.findAll();
+    }
+
 }
 ```
 
 ---
 
-### CONFIG config.java 🦛
+### CONFIG config.java  MongoConfig.java🦛
+
+```java
+package org.example.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class Config {
+
+    // BEAN NECESARIO PARA COMUNICARSE CON EL MICROSERVICIO PELISPOSTGRES
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
 
 ```java
 package org.example.config;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.mongodb.core.MongoTemplate;
 
-@Configuration // MARCA ESTA CLASE COMO UNA FUENTE DE DEFINICIONES DE BEANS PARA QUE SPRING CONFIGURE LOS COMPONENTES TÉCNICOS DE INFRAESTRUCTURA AL INICIO
-public class Config {
+@Configuration
+public class MongoConfig {
 
-    @Bean // DEFINE EL CLIENTE FÍSICO DE MONGODB QUE GESTIONARÁ EL POOL DE CONEXIONES HACIA EL SERVIDOR EXTERNO
+    @Value("${spring.data.mongodb.uri}")
+    private String mongoUri;
+
+    @Bean
     public MongoClient mongoClient() {
-        // CREA LA CONEXIÓN UTILIZANDO LA IP ESPECÍFICA DE TU MÁQUINA VIRTUAL Y EL PUERTO ESTÁNDAR DE MONGODB
-        return MongoClients.create("mongodb://172.20.10.2:27017");
-    }
-
-    @Bean // CREA EL BEAN DE MONGOTEMPLATE QUE SERÁ UTILIZADO POR LA CLASE "SECUENCIA" PARA REALIZAR OPERACIONES CRUD SOBRE LOS DOCUMENTOS
-    public MongoTemplate mongoTemplate() {
-        // VINCULA EL CLIENTE ANTERIOR CON LA BASE DE DATOS ESPECÍFICA DENOMINADA "PELICULASDB"
-        return new MongoTemplate(mongoClient(), "peliculasDB");
+        return MongoClients.create(mongoUri);
     }
 }
 ```
@@ -799,33 +913,100 @@ public class Config {
 
 ### MAIN Main.java 🦭
 
+>[!NOTE]
+>***`@PostConstruct` : Esta anotación es vital. Le dice a Spring: "Oye, en cuanto termines de cargar toda la configuración y de conectarte a las bases de datos, ejecuta inmediatamente el método executar()". Sin esto, el programa arrancaría y se quedaría esperando sin hacer nada. `System.exit(200)` : Una vez que la secuencia termina, matamos el proceso con código 200 (Todo OK). Esto libera la consola y la memoria.***
+
 ```java
 package org.example;
-
 import jakarta.annotation.PostConstruct;
 import org.example.service.Secuencia;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication // ANOTACIÓN MAESTRA QUE HABILITA LA AUTO-CONFIGURACIÓN DE SPRING BOOT, EL ESCANEO DE COMPONENTES Y LA CONFIGURACIÓN DE PROPIEDADES
+@SpringBootApplication
 public class Main {
 
-    @Autowired // INYECTA LA CLASE SECUENCIA PARA PODER DISPARAR EL FLUJO DE DATOS AUTOMÁTICAMENTE
-    private Secuencia secuencia;
+    private final Secuencia secuencia;
 
+    // INYECCION DE DEPENDENCIAS POR CONSTRUCTOR
+    public Main(Secuencia secuencia) {
+        this.secuencia = secuencia;
+    }
+
+    // SE EJECUTA AUTOMATICAMENTE AL LEVANTAR SPRING
+    @PostConstruct
+    public void executar() {
+        secuencia.executar();
+        System.out.println("FINALIZANDO APLICACION CON EXIT CODE 200");
+        System.exit(200);
+    }
+    
     public static void main(String[] args) {
-        // INICIA LA APLICACIÓN DE SPRING BOOT, ARRANCANDO EL SERVIDOR EMBEBIDO EN EL PUERTO 8086 DEFINIDO EN PROPERTIES
         SpringApplication.run(Main.class, args);
     }
-
-    @PostConstruct // ESTA ANOTACIÓN ASEGURA QUE EL MÉTODO SE EJECUTE AUTOMÁTICAMENTE JUSTO DESPUÉS DE QUE TODO EL CONTEXTO DE SPRING ESTÉ LISTO
-    public void ejecutarAlArranque() {
-        // DISPARA LA LÓGICA DE LA PRÁCTICA: INSERTAR EN POSTGRES (8085), LEER, GUARDAR EN MONGO Y EXPORTAR EL JSON
-        System.out.println("--- INICIANDO SECUENCIA AUTOMÁTICA DE LA PRÁCTICA 3 ---");
-        secuencia.ejecutarSecuencia();
-        System.out.println("--- SECUENCIA FINALIZADA CON ÉXITO ---");
-    }
 }
+```
+
+---
+
+### SALIDA EN JSON 🦜
+
+```JSON
+[
+  {
+    "id": "697b9452d2e7161e1573712a",
+    "idPelicula": 1,
+    "titulo": "TITANIC",
+    "xenero": "TERROR",
+    "ano": 1997,
+    "actores": [
+      {
+        "idActor": 1,
+        "nome": "Leonardo",
+        "apelidos": "DiCaprio",
+        "nacionalidade": "Otaku"
+      },
+      {
+        "idActor": 2,
+        "nome": "Otaku",
+        "apelidos": "Otake",
+        "nacionalidade": "Otaku"
+      },
+      {
+        "idActor": 3,
+        "nome": "Bobi",
+        "apelidos": "Otakech",
+        "nacionalidade": "Otaku"
+      }
+    ]
+  },
+  {
+    "id": "697b9452d2e7161e1573712b",
+    "idPelicula": 2,
+    "titulo": "Avatar",
+    "xenero": "Sci-Fi",
+    "ano": 2009,
+    "actores": [
+      {
+        "idActor": 4,
+        "nome": "Mari",
+        "apelidos": "MJ",
+        "nacionalidade": "ONICHa"
+      },
+      {
+        "idActor": 5,
+        "nome": "Arigato",
+        "apelidos": "Brawl",
+        "nacionalidade": "Stars"
+      },
+      {
+        "idActor": 6,
+        "nome": "Dirham",
+        "apelidos": "Juli",
+        "nacionalidade": "Royale"
+      }
+    ]
+  }
+]
 ```
 
