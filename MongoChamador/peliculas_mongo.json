@@ -1,0 +1,56 @@
+[
+  {
+    "id": "697ba61e97c0634ff11eebed",
+    "idPelicula": 3,
+    "titulo": "TITANIC",
+    "xenero": "TERROR",
+    "ano": 1997,
+    "actores": [
+      {
+        "idActor": 7,
+        "nome": "Leonardo",
+        "apelidos": "DiCaprio",
+        "nacionalidade": "Otaku"
+      },
+      {
+        "idActor": 8,
+        "nome": "Otaku",
+        "apelidos": "Otake",
+        "nacionalidade": "Otaku"
+      },
+      {
+        "idActor": 9,
+        "nome": "Bobi",
+        "apelidos": "Otakech",
+        "nacionalidade": "Otaku"
+      }
+    ]
+  },
+  {
+    "id": "697ba61e97c0634ff11eebee",
+    "idPelicula": 2,
+    "titulo": "Avatar",
+    "xenero": "Sci-Fi",
+    "ano": 2009,
+    "actores": [
+      {
+        "idActor": 4,
+        "nome": "Mari",
+        "apelidos": "MJ",
+        "nacionalidade": "ONICHa"
+      },
+      {
+        "idActor": 5,
+        "nome": "Arigato",
+        "apelidos": "Brawl",
+        "nacionalidade": "Stars"
+      },
+      {
+        "idActor": 6,
+        "nome": "Dirham",
+        "apelidos": "Juli",
+        "nacionalidade": "Royale"
+      }
+    ]
+  }
+]
