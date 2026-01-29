@@ -267,7 +267,7 @@ public class PeliculasService {
         return peliculasRepository.save(pelicula);
     }
 
-    // BUSCAR POR ID RETORNANDO OPTIONAL (ESTILO JORGE)
+    // BUSCAR POR ID RETORNANDO OPTIONAL 
     public Optional<Peliculas> findById(Long id) {
         return peliculasRepository.findById(id);
     }
